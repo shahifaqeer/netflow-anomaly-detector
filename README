@@ -1,0 +1,10 @@
+#Netflow Data Analysis
+
+- anomaly detection
+- batch process
+
+## netflow-data-scratch-file.ipynb
+
+- explore netflow data
+- group by srcip-dstip
+- group by flow (srcip, sport, dstip, dport, proto)
