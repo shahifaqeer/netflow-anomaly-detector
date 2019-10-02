@@ -69,7 +69,7 @@ class Analyzer(object):
         if flow.dst_ip.exploded == "188.209.49.135":
             self.__alerts.append(Alert(name="Nebula IP address",
                                        evidence=[flow]))
-        if flow.dst_ip.exploded == "179.126.22.176":
+        if flow.src_ip.exploded == "179.126.22.176":
             self.__alerts.append(Alert(name="Algar Telecom BR IP address",
                                        evidence=[flow]))
 
@@ -89,14 +89,16 @@ def main(argv):
     analyzer = Analyzer()
 
     # pass input data stream as open("data.csv", "r") to csv.reader for testing
-    fin = csv.reader(sys.stdin)
-    for e in fin:
-        flow = Flow.from_csv(e)
-        analyzer.process(flow)
+    with open('data.csv', 'r') as csvfile:
+        #fin = csv.reader(sys.stdin)
+        fin = csv.reader(csvfile)
+        for e in fin:
+            flow = Flow.from_csv(e)
+            analyzer.process(flow)
 
-    for alert in analyzer.alerts:
-        print(alert.name)
-        print("\n".join("\t{}".format(e) for e in alert.evidence))
+        for alert in analyzer.alerts:
+            print(alert.name)
+            print("\n".join("\t{}".format(e) for e in alert.evidence))
 
     return 0
 
