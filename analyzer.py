@@ -66,18 +66,18 @@ class Analyzer(object):
         """
         self.__num_flows += 1
 
-        # TODO: implement your detection technique here.
+        # 1. Blacklist check
+        # TODO: this individual ip check is very slow - use indexing?
+        # if flow.dst_ip.exploded in self.__blacklist:
+        #     # ip_name = blacklist_detector.blacklist_ip_name(flow.dst_ip.exploded)
+        #     self.__alerts.append(Alert(name="Blacklisted destination "+flow.dst_ip.exploded,
+        #                                evidence=[flow]))
+        # if flow.src_ip.exploded in self.__blacklist:
+        #     # ip_name = blacklist_detector.blacklist_ip_name(flow.dst_ip.exploded)
+        #     self.__alerts.append(Alert(name="Blacklisted source " + flow.src_ip.exploded,
+        #                                evidence=[flow]))
 
-        # blacklist check
-        # TODO: check timing of simple blacklist checks
-        if flow.dst_ip.exploded in self.__blacklist:
-            # ip_name = blacklist_detector.blacklist_ip_name(flow.dst_ip.exploded)
-            self.__alerts.append(Alert(name="Blacklisted destination "+flow.dst_ip.exploded,
-                                       evidence=[flow]))
-        if flow.src_ip.exploded in self.__blacklist:
-            # ip_name = blacklist_detector.blacklist_ip_name(flow.dst_ip.exploded)
-            self.__alerts.append(Alert(name="Blacklisted source " + flow.src_ip.exploded,
-                                       evidence=[flow]))
+        # 2. Flow open check
 
         if (self.__num_flows % 10000) == 0:
             print("done flows", self.__num_flows)
