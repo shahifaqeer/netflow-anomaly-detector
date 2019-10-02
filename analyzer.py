@@ -54,9 +54,26 @@ class Analyzer(object):
         self.__num_flows = 0
         self.__alerts = []
 
+        self.__blacklist = []
+        self.__safe_ips = []
+        self.__load_blacklist()
+
+    def __load_blacklist(self):
         with open('blacklist_ips.csv', 'r') as blacklistcsv:
             self.__blacklist = list(csv.reader(blacklistcsv))
         print("load blacklist")
+
+    def check_blacklist(self, ip_address):
+        """quick check for ip safety"""
+        if ip_address in self.__safe_ips:
+            return False
+        else:
+            # this is a slow check
+            if ip_address in self.__blacklist:
+                return True
+            else:
+                self.__safe_ips.append(ip_address)
+                return False
 
     def process(self, flow):
         """
@@ -67,18 +84,17 @@ class Analyzer(object):
         self.__num_flows += 1
 
         # 1. Blacklist check
-        # TODO: this individual ip check is very slow - use indexing?
-        # if flow.dst_ip.exploded in self.__blacklist:
-        #     # ip_name = blacklist_detector.blacklist_ip_name(flow.dst_ip.exploded)
-        #     self.__alerts.append(Alert(name="Blacklisted destination "+flow.dst_ip.exploded,
-        #                                evidence=[flow]))
-        # if flow.src_ip.exploded in self.__blacklist:
-        #     # ip_name = blacklist_detector.blacklist_ip_name(flow.dst_ip.exploded)
-        #     self.__alerts.append(Alert(name="Blacklisted source " + flow.src_ip.exploded,
-        #                                evidence=[flow]))
+        # populates list of safe ip addresses
+        if self.check_blacklist(flow.src_ip.exploded):
+            self.__alerts.append(Alert(name="Blacklisted source " + flow.src_ip.exploded,
+                                       evidence=[flow]))
+        if self.check_blacklist(flow.dst_ip.exploded):
+            self.__alerts.append(Alert(name="Blacklisted destination " + flow.src_ip.exploded,
+                                       evidence=[flow]))
 
         # 2. Flow open check
 
+        # counter
         if (self.__num_flows % 10000) == 0:
             print("done flows", self.__num_flows)
 
