@@ -4,7 +4,7 @@ import csv
 import datetime
 import ipaddr
 import sys
-
+from blacklist_detector import Blacklist
 
 _FLOW_FIELDS = [
     "ts",
@@ -52,8 +52,11 @@ class Analyzer(object):
 
     def __init__(self):
         self.__num_flows = 0
-
         self.__alerts = []
+
+        with open('blacklist_ips.csv', 'r') as blacklistcsv:
+            self.__blacklist = list(csv.reader(blacklistcsv))
+        print("load blacklist")
 
     def process(self, flow):
         """
@@ -64,14 +67,20 @@ class Analyzer(object):
         self.__num_flows += 1
 
         # TODO: implement your detection technique here.
-        #
-        # What follows is a trivial example of how alerts can be built - remove it :-)
-        if flow.dst_ip.exploded == "188.209.49.135":
-            self.__alerts.append(Alert(name="Nebula IP address",
+
+        # blacklist check
+        # TODO: check timing of simple blacklist checks
+        if flow.dst_ip.exploded in self.__blacklist:
+            # ip_name = blacklist_detector.blacklist_ip_name(flow.dst_ip.exploded)
+            self.__alerts.append(Alert(name="Blacklisted destination "+flow.dst_ip.exploded,
                                        evidence=[flow]))
-        if flow.src_ip.exploded == "179.126.22.176":
-            self.__alerts.append(Alert(name="Algar Telecom BR IP address",
+        if flow.src_ip.exploded in self.__blacklist:
+            # ip_name = blacklist_detector.blacklist_ip_name(flow.dst_ip.exploded)
+            self.__alerts.append(Alert(name="Blacklisted source " + flow.src_ip.exploded,
                                        evidence=[flow]))
+
+        if (self.__num_flows % 10000) == 0:
+            print("done flows", self.__num_flows)
 
 
     @property
@@ -87,6 +96,10 @@ class Analyzer(object):
 
 def main(argv):
     analyzer = Analyzer()
+
+    # setup blacklist file
+    # bl = Blacklist()    # create required offline blacklist file for checks
+    # del bl
 
     # pass input data stream as open("data.csv", "r") to csv.reader for testing
     with open('data.csv', 'r') as csvfile:
