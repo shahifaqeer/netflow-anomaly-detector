@@ -4,7 +4,7 @@ import csv
 import datetime
 import ipaddr
 import sys
-from blacklist_detector import Blacklist
+# from blacklist_detector import Blacklist
 
 _FLOW_FIELDS = [
     "ts",
@@ -54,13 +54,13 @@ class Analyzer(object):
         self.__num_flows = 0
         self.__alerts = []
 
-        self.__blacklist = []
-        self.__safe_ips = []
+        #self.__blacklist = []
+        self.__safe_ips = set()
         self.__load_blacklist()
 
     def __load_blacklist(self):
         with open('blacklist_ips.csv', 'r') as blacklistcsv:
-            self.__blacklist = list(csv.reader(blacklistcsv))
+            self.__blacklist = set(list(csv.reader(blacklistcsv))[0])
         print("load blacklist")
 
     def check_blacklist(self, ip_address):
@@ -72,7 +72,7 @@ class Analyzer(object):
             if ip_address in self.__blacklist:
                 return True
             else:
-                self.__safe_ips.append(ip_address)
+                self.__safe_ips.add(ip_address)
                 return False
 
     def process(self, flow):
@@ -92,7 +92,7 @@ class Analyzer(object):
             self.__alerts.append(Alert(name="Blacklisted destination " + flow.src_ip.exploded,
                                        evidence=[flow]))
 
-        # 2. Flow open check
+        # 2. Flow open check - do it by aggregating each second instead of each entry
 
         # counter
         if (self.__num_flows % 10000) == 0:
@@ -114,7 +114,7 @@ def main(argv):
     analyzer = Analyzer()
 
     # setup blacklist file
-    # bl = Blacklist()    # create required offline blacklist file for checks
+    # bl = Blacklist()    # create required offline blacklist and update it
     # del bl
 
     # pass input data stream as open("data.csv", "r") to csv.reader for testing
