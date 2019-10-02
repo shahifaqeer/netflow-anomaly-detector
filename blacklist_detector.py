@@ -16,7 +16,7 @@ import csv
 
 BLACKLIST_URLS = [
     ("https://rules.emergingthreats.net/blockrules/compromised-ips.txt", 'ip', 'csv'),
-    ("http://reputation.alienvault.com/reputation.data", 'ip', 'split#0')
+    ("http://reputation.alienvault.com/reputation.data", 'ip', 'split#0'),
 ]
 
 blacklist_ips_savefile = "blacklist_ips.csv"
@@ -39,8 +39,8 @@ class Blacklist(object):
                 fin = csv.reader(csvfile)
                 self.__blacklist = list(fin)
 
-        # print("update blacklist")
-        # self.__update()
+        print("update blacklist")
+        self.__update()
 
     def __update(self):
         """
@@ -61,21 +61,21 @@ class Blacklist(object):
                     ips = resp.text.strip().split("\n")
                     # check if any additions
                     for ip in ips:
-                        if not ip in self.__blacklist:
+                        if ip not in self.__blacklist:
                             self.__blacklist.append(ip)
                 elif list_format == 'split#0':
                     data = resp.text.strip().split("\n")
                     # need to get first elem in each row
                     for row in data:
                         ip = row.split("#")[0]
-                        if not ip in self.__blacklist:
+                        if ip not in self.__blacklist:
                             self.__blacklist.append(ip)
 
 
         # save current blacklist
         with open(blacklist_ips_savefile, "w") as csvfile:
             fout = csv.writer(csvfile)
-            fout.writerows(self.__blacklist)
+            fout.writerow(self.__blacklist)
             print("Save updated blacklist")
 
         return
