@@ -39,6 +39,7 @@ class Flow(collections.namedtuple("Flow", _FLOW_FIELDS)):
                     src_tx=int(e[7]),
                     dst_tx=int(e[8]))
 
+
 _ALERT_FIELDS = [
     "name",
     "evidence",
@@ -89,8 +90,8 @@ def main(argv):
         analyzer.process(flow)
 
     for alert in analyzer.alerts:
-        print alert.name
-        print "\n".join("\t{}".format(e) for e in alert.evidence)
+        print(alert.name)
+        print("\n".join("\t{}".format(e) for e in alert.evidence))
 
     return 0
 
