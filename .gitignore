@@ -2,3 +2,4 @@ data.csv
 .DS*
 .ipynb_checkpoints/
 __pycache__/
+processed/
