@@ -1,8 +1,8 @@
-# Netflow Data Analysis
+# Netflow Data Analysis for LastLine Challenge
+By: Sarthak Grover
+Date: 10/3/2019
 
-- anomaly detection
-- batch process
-
+Aim: Given some netflow network records, detect anomalous behavior (ex: port scanning)
 ## Source:
 - analyzer_clean.py: batches flows every 10s, and sends the batch for outlier detection.
 Checks outlier ip_addresses (src and dst combined) to issue alerts.
@@ -81,6 +81,10 @@ Returns the src and dst addresses that were outliers based on number of connecti
 - group by flow (srcip, sport, dstip, dport, proto)
 
 ## Results:
+- Almost certain that 192.168.100.96 had the worst behavior.
+- Multiple IPs had too much activity on non-mainstream ports
+- 15 dst_ips used more than a 100 unique ports each.
+- Final simple implementation based on statistical outlier detection:
 - only flow agg IQR with 2 features [num_dst_ports, num_conns]: Total Number of Alerts: 65752
 - only flow agg IQR with num_dst_ports: Total Number of Alerts: 14366
 - only flow agg IQR with num_conns: Total Number of Alerts: 60617
