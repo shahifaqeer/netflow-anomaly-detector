@@ -4,6 +4,8 @@ import csv
 import datetime
 import ipaddr
 import sys
+import numpy as np
+
 # from blacklist_detector import Blacklist
 
 _FLOW_FIELDS = [
@@ -76,7 +78,7 @@ class Analyzer(object):
 
         self.__port_stats = {}
         self.__ip_stats = {}
-        self.__num_ports_average = 0
+        self.__num_ports_average = 5
 
     def __load_blacklist(self):
         with open('blacklist_ips.csv', 'r') as blacklistcsv:
@@ -166,7 +168,7 @@ class Analyzer(object):
     def alert_ip_activity(self, flow):
         """Log flow aggregates as indexed by ip address.
 
-        ip_to_port = {ip_address: [list of ports used]}
+        ip_to_port = {ip_address1: {'dst_port': [unique list of ports used], 'num_ports': int, 'bytes_dw': sum }, ... }
         for src_ip: bytes_dw is dst_tx and bytes_up is src_tx
         for dst_ip: bytes_dw is src_tx and bytes_up is dst_tx TODO: should we save these separately instead?
         function calculates the average number of ports per IP address (simple)
@@ -184,9 +186,20 @@ class Analyzer(object):
              mean number of unique ports for dstip = 2.24
              median number of unique ports for srcip = 1.5
              median number of unique ports for dstip = 1
+             max (avg, std) reaches to (3.5, 19.2)
+             offline hist shows 2 categories: lower than 25 and more than 150 unique ports
             """
-            #thresh = sum([ len(ip['dst_port'] for k, ip in ip_stats) ])/len(ip_stats)
-            return 10
+            num_unique_ports_per_ip = [v['num_ports'] for v in ip_stats.values()]
+
+            # TODO generally median and median-absolute-deviation is much better than (mean,std) for outlier detection
+            # https://stats.stackexchange.com/questions/121071/can-we-use-leave-one-out-mean-and-standard-deviation-to-reveal-the-outliers
+
+            # TODO: use separate thresholds for srcip and dstip based on hist of number of unique ports
+            avg = np.mean(num_unique_ports_per_ip)
+            std = np.std(num_unique_ports_per_ip)
+            perc90 = np.percentile(num_unique_ports_per_ip, 90)
+            print(avg,std,perc90)
+            return perc90
 
         dport = flow.dst_port
         dst_ip = flow.dst_ip.exploded
@@ -195,13 +208,10 @@ class Analyzer(object):
         for (ip_addr, direction) in [(src_ip, 0), (dst_ip, 1)]:
             if ip_addr not in self.__ip_stats:
                 self.__ip_stats[ip_addr] = {}
-                if direction is 1:
-                    self.__ip_stats[ip_addr]['bytes_dw'] = flow.src_tx
-                    self.__ip_stats[ip_addr]['bytes_up'] = flow.dst_tx
-                else:
-                    self.__ip_stats[ip_addr]['bytes_dw'] = flow.dst_tx
-                    self.__ip_stats[ip_addr]['bytes_up'] = flow.src_tx
-                self.__ip_stats[ip_addr]['connections'] = 1
+                self.__ip_stats[ip_addr]['bytes_dw'] = 0
+                self.__ip_stats[ip_addr]['bytes_up'] = 0
+                self.__ip_stats[ip_addr]['connections'] = 0
+                self.__ip_stats[ip_addr]['num_ports'] = 0
                 self.__ip_stats[ip_addr]['dst_port'] = []
                 self.__ip_stats[ip_addr]['num_ports_alert'] = False
             else:
@@ -211,18 +221,26 @@ class Analyzer(object):
                 else:
                     self.__ip_stats[ip_addr]['bytes_dw'] += flow.dst_tx
                     self.__ip_stats[ip_addr]['bytes_up'] += flow.src_tx
-                self.__ip_stats[ip_addr]['connections'] += 1
+            self.__ip_stats[ip_addr]['connections'] += 1
 
-            self.__ip_stats[ip_addr]['dst_port'].append(dport)
-            self.__num_ports_average = __calculate_port_alert_threshold(self.__ip_stats)
+            if dport not in self.__ip_stats[ip_addr]['dst_port']:
+                self.__ip_stats[ip_addr]['num_ports'] += 1
+                self.__ip_stats[ip_addr]['dst_port'].append(dport)
+                self.__num_ports_average = __calculate_port_alert_threshold(self.__ip_stats)
 
-            if len(self.__ip_stats[ip_addr]['dst_port']) > self.__num_ports_average and dport not in _POPULAR_PORTS:
+            # if 3 times more than avg then definitely alert (simple)
+            if self.__ip_stats[ip_addr]['num_ports'] > self.__num_ports_average and dport not in _POPULAR_PORTS:
                 if not self.__ip_stats[ip_addr]['num_ports_alert']:
-                    self.__alerts.append(Alert(name="Too many ports used by IP " + ip_addr, evidence=[flow]))
+                    self.__alerts.append(Alert(name="IP " + ip_addr + " using too many ports: "
+                                                    + str(len(self.__ip_stats[ip_addr]['dst_port'])), evidence=[flow]))
                     self.__ip_stats[ip_addr]['num_ports_alert'] = True
+            if self.__ip_stats[ip_addr]['num_ports'] > 100:
+                self.__alerts.append(Alert(name="IP " + ip_addr + " using more than 100 ports: "
+                                                + str(len(self.__ip_stats[ip_addr]['dst_port'])), evidence=[flow]))
+
 
     def alert_flow_statistics(self, flow):
-        """Aggregate flow counters every T seconds and derive features."""
+        """Aggregate flow counters every T=5 seconds and derive features for ML."""
         # TODO
         pass
 
