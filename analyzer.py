@@ -6,6 +6,8 @@ import ipaddr
 import sys
 import numpy as np
 
+from pandas_analysis import get_attributes_from_flow_list
+
 # from blacklist_detector import Blacklist
 
 _FLOW_FIELDS = [
@@ -79,6 +81,11 @@ class Analyzer(object):
         self.__port_stats = {}
         self.__ip_stats = {}
         self.__num_ports_average = 5
+
+        self.__T = 10   # seconds to aggregate and load in memory
+        self.__refresh_ports_cycle = 60     # cycles to refresh dst_ports
+        self.__refresh_ports_counter = 0
+        self.flow_list = []
 
     def __load_blacklist(self):
         with open('blacklist_ips.csv', 'r') as blacklistcsv:
@@ -238,10 +245,90 @@ class Analyzer(object):
                 self.__alerts.append(Alert(name="IP " + ip_addr + " using more than 100 ports: "
                                                 + str(len(self.__ip_stats[ip_addr]['dst_port'])), evidence=[flow]))
 
+    def outlier_flow_detection(self):
+        """
+        Aggregate flow counters when called every T=10 seconds.
+        Input: self.flow_list
+        Use pandas DataFrame for quick calculations
+
+        TODO: move (srcip, dstip) to a new IPPairStats class in pandas_analysis.py
+        Take (srcip, dstip) key and find distribution of packets, bytes
+        dst_ports_used by (src_ip, dst_ip) as dict with time_last_used
+            - used to create count of ports
+            - dict can be refreshed every 10 mins or so to remove old entries (so after 600/T cycles)
+        int: number of new dst_ports: calculated from additions to above list
+        int: percentile X new dst_ports across all pairs
+        int: number of current dst_ports: len (dst_ports_used for (src_ip, dst_ip) pair)
+        int: percentile X current dst_ports across all pairs
+        int: number of flow_tuples not closed yet (num_new - num_closed)
+        int: bytes_up, bytes_dw in T sec
+        int: percentile X bytes_up, bytes_dw in T s across all pairs
+        int: number of packets/entries in T sec
+        int: percentile X packets in T s across all pairs
+
+        methods:
+        - percentileX of distribution (list)
+        - refresh open dst_port dict every 60 cycles (for 10 mins)
+
+        Simple threshold based algo:
+        if ( bytes(src,dst) > percentileX_bytes ) & (numPackets() > percentileX_packets )
+        & (num_new_dst_ports > percentileX_new_dst_ports) & (num_dst_ports > percentileX_dst_ports)
+        """
+        self.__refresh_ports_counter += 1  # increase counter on entering this function
+
+        # new_dst_ports = 0
+        # for flow in self.flow_list:
+        #    new_dst_ports += self.__add_dst_port_dict(flow)
+        # total_dst_ports = len(self.dst_ports_open)
+
+        # function to deal with T sec flow_list using pandas
+        # get_attributes_from_flow_list(self.flow_list, new_dst_ports, total_dst_ports)
+
+        # TODO: bad patching - very slow and redundant
+        for src_ip, dst_ip in get_attributes_from_flow_list(self.flow_list):
+            for flow in self.flow_list:
+                if (flow.src_ip.exploded == src_ip) and (flow.dst_ip.exploded == dst_ip):
+                    # print("add alert")
+                    self.__alerts.append(Alert(name="Flagged by IQR based outlier detection for ports or connections",
+                                               evidence=[flow]))
+
+        # account for new ports used within 10 min - not used for now
+        if self.__refresh_ports_counter == self.__refresh_ports_cycle:
+            self.__flush_dst_port_dict()
+            self.__refresh_ports_counter = 0
+
     def alert_flow_statistics(self, flow):
-        """Aggregate flow counters every T=5 seconds"""
-        # TODO
+        """Checks if T time passed. Passes batch list_of_flows to outlier detection and flushes it."""
+        self.flow_list.append(flow)
+        if int(flow.ts.strftime('%s')) % self.__T == 0:
+            self.outlier_flow_detection()
+            self.flow_list = []
+
+    def __flush_dst_port_dict(self):
+        """
+        Pop dst ports that have expired every refresh cycle.
+
+        TODO: dst_port_dict is created for each unique (src_ip, dst_ip) pair.
+        TODO: Move functions to pandas analysis file.
+        TODO: Use global variable as hack to ensure state across calls
+        """
+        # for port, time_open in self.dst_ports_open:
+        #   if (flow.ts - time_open) > self.__refresh_ports_cycle * self.__T:
+        #       self.dst_ports_open.pop(port)
         pass
+
+    def __add_dst_port_dict(self, flow):
+        """
+        Adds port to current port dictionary, updates time, and returns number of new additions (0 or 1).
+
+        TODO: Completely move functionality to pandas analysis file
+        """
+        # if flow.dst_port in self.dst_ports_open:
+        #     self.dst_ports_open[flow.dst_port] = flow.ts  # update time last seen
+        #     return 0
+        # self.dst_ports_open[flow.dst_port] = flow.ts  # add dst_port and time last seen
+        # return 1
+        return 0
 
     def alert_clustering(self, flow):
         """
@@ -251,6 +338,9 @@ class Analyzer(object):
         Can use PCA for further dimensional reduction.
         Strings should be replaced with categorical features.
         Dependency: pandas, sklearn.
+
+        Separate analysis show success in clustering data when using PCA
+        and kmeans with k=4 and k=8 (see ipython notebook for details)
         """
         # TODO
         pass
@@ -259,7 +349,7 @@ class Analyzer(object):
         """
         Predict anomaly based on LSTM network.
 
-        Requires large training data as input.
+        Requires large training data as input, and possibly training labels
         """
         pass
 
@@ -270,26 +360,28 @@ class Analyzer(object):
         0. Check basics: packet lengths, local IPs, connection state, protocols, etc.
         1. Check src ip and dst ip against a blacklist set in memory
         2. Check dst_port and index first use for IP address + aggregate bytes
+        3. Check IP address and number of ports, protocols, bytes
+        4. Aggregate flows for (src_ip, dst_ip) pair every T sec
 
         :param Flow flow: a data flow record
         """
         self.__num_flows += 1
 
         # 0. Basic checks
-        self.alert_basic_checks(flow)
+        #self.alert_basic_checks(flow)
 
         # 1. Blacklist check
-        self.alert_ip_blacklist(flow)
+        #self.alert_ip_blacklist(flow)
 
         # 2. Port check
-        if flow.dst_port not in _POPULAR_PORTS:
-            self.alert_port_activity(flow)
+        #if flow.dst_port not in _POPULAR_PORTS:
+        #    self.alert_port_activity(flow)
 
         # 3. IP check
-        self.alert_ip_activity(flow)
+        #self.alert_ip_activity(flow)
 
-        # 3. Flow aggregator
-        # TODO: agg every T sec and store flow info + extra features in memory
+        # 4. Flow aggregator
+        self.alert_flow_statistics(flow)
 
         # counter print
         if (self.__num_flows % 10000) == 0:
