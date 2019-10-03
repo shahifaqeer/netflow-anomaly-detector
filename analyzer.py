@@ -238,10 +238,29 @@ class Analyzer(object):
                 self.__alerts.append(Alert(name="IP " + ip_addr + " using more than 100 ports: "
                                                 + str(len(self.__ip_stats[ip_addr]['dst_port'])), evidence=[flow]))
 
-
     def alert_flow_statistics(self, flow):
-        """Aggregate flow counters every T=5 seconds and derive features for ML."""
+        """Aggregate flow counters every T=5 seconds"""
         # TODO
+        pass
+
+    def alert_clustering(self, flow):
+        """
+        Cluster flows based on derived features.
+
+        Unsupervised learning to categorize based on similarity and density.
+        Can use PCA for further dimensional reduction.
+        Strings should be replaced with categorical features.
+        Dependency: pandas, sklearn.
+        """
+        # TODO
+        pass
+
+    def alert_rnn_model(self, flow):
+        """
+        Predict anomaly based on LSTM network.
+
+        Requires large training data as input.
+        """
         pass
 
     def process(self, flow):
