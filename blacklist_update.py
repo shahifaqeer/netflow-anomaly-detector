@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# Name: blacklist_detector.py
+# Name: blacklist_update.py
 # By: Sarthak Grover
 # Date: 2019-10-2
 # ----------------------------

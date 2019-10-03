@@ -7,8 +7,19 @@ def get_attributes_from_flow_list(flow_list):
     Input: List of flows from analyzer.py
 
     Currently using IQR for outlier detection - replace by better stats method
+    Input to IQR: [ num_dst_ports, num_conns, src_tx, dst_tx ]
+    - number of different unique dst ports being used in batch (groupby: srcip,dstip)
+    - number of connections (packets) in batch
+    - total traffic sent (uploaded)
+    - total traffic received (downloaded)
 
-    return: (src_ip, dst_ip) iterable of outliers
+    Results: Number of alerts generated
+    - [num_dst_ports, num_conns]: 65752
+    - [num_dst_ports]: 14366
+    - [num_conns]: 60617
+    - [num_dst_ports, num_conns, src_tx, dst_tx]: 76492
+
+    return: zip(src_ip_list, dst_ip_list) iterable of outliers
 
     TODO: Make it state-full across data
         - remember previous open dst_ports and previous open flows that haven't been closed
@@ -39,7 +50,7 @@ def get_attributes_from_flow_list(flow_list):
         outer_fence = (q1 - delta * 3, q3 + delta * 3)
         return outer_fence
 
-    outlier_features = ['num_dst_ports', 'num_conns', ]  # 'dst_tx', 'src_tx']
+    outlier_features = ['num_dst_ports']    # , 'num_conns', 'dst_tx', 'src_tx']
 
     def outlier_detection(df):
         df_list = []

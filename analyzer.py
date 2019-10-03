@@ -8,7 +8,7 @@ import numpy as np
 
 from pandas_analysis import get_attributes_from_flow_list
 
-# from blacklist_detector import Blacklist
+# from blacklist_update import Blacklist
 
 _FLOW_FIELDS = [
     "ts",
@@ -205,7 +205,7 @@ class Analyzer(object):
             avg = np.mean(num_unique_ports_per_ip)
             std = np.std(num_unique_ports_per_ip)
             perc90 = np.percentile(num_unique_ports_per_ip, 90)
-            print(avg,std,perc90)
+            # print(avg,std,perc90)
             return perc90
 
         dport = flow.dst_port
@@ -361,27 +361,38 @@ class Analyzer(object):
         1. Check src ip and dst ip against a blacklist set in memory
         2. Check dst_port and index first use for IP address + aggregate bytes
         3. Check IP address and number of ports, protocols, bytes
-        4. Aggregate flows for (src_ip, dst_ip) pair every T sec
+        4. Aggregate flows for (src_ip, dst_ip) pair every T sec and detect outlies statistically
+        5. TODO: cluster input in batches using 'rbf'
+        6. TODO: train RNN based LSTM with good data, predict output
+        7. TODO: aggregate output of all detectors for each flow and produce trustworthy probability
 
         :param Flow flow: a data flow record
         """
         self.__num_flows += 1
 
         # 0. Basic checks
-        #self.alert_basic_checks(flow)
+        self.alert_basic_checks(flow)
 
         # 1. Blacklist check
-        #self.alert_ip_blacklist(flow)
+        self.alert_ip_blacklist(flow)
 
         # 2. Port check
-        #if flow.dst_port not in _POPULAR_PORTS:
-        #    self.alert_port_activity(flow)
+        if flow.dst_port not in _POPULAR_PORTS:
+            self.alert_port_activity(flow)
 
         # 3. IP check
-        #self.alert_ip_activity(flow)
+        self.alert_ip_activity(flow)
 
         # 4. Flow aggregator
         self.alert_flow_statistics(flow)
+
+        # 5. clustering based prediction
+        # self.alert_clustering(flow)
+
+        # 6. neural network (rnn) based modeling
+        # self.alert_rnn_model(flow)
+
+        # 7. trust aggregator based on all detectors
 
         # counter print
         if (self.__num_flows % 10000) == 0:
