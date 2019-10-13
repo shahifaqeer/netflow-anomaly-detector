@@ -1,8 +1,11 @@
-# Netflow Data Analysis for LastLine Challenge
+# Network Anomaly Detector for Netflow Traces
+
 By: Sarthak Grover
+
 Date: 10/3/2019
 
 Aim: Given some netflow network records, detect anomalous behavior (ex: port scanning)
+
 ## Source:
 - analyzer_clean.py: batches flows every 10s, and sends the batch for outlier detection.
 Checks outlier ip_addresses (src and dst combined) to issue alerts.
